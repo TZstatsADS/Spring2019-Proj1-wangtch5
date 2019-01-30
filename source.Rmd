@@ -1,0 +1,163 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## What are our goals?
+### 1. Find who are people spending time with in HM (gender, married/single).
+### 2. What are people doing when they feel happy maybe different catagories?.
+### 3. Number of sentences.
+### 4. Several data we could use, country, gender, age, marital, parenthood.
+
+```{r}
+
+library(shiny)
+runExample("01_hello")
+runExample("02_text")
+runExample("03_reactivity")
+runExample("04_mpg")
+runExample("11_timer")
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(ggplot2)
+library(tm)
+
+```
+
+## The goal is to find some interesting points based on gender difference.
+```{r warning = FALSE}
+hm_data <- read_csv("./output/processed_moments.csv")
+
+urlfile <- 'https://raw.githubusercontent.com/rit-public/HappyDB/master/happydb/data/demographic.csv'
+dem_data <- read_csv(urlfile)
+
+new_hm_data <- merge(dem_data, hm_data, by = "wid", all = FALSE)
+new_hm_data <- unique(new_hm_data)
+new_hm_data <- new_hm_data[c(1,7,15,2,3,4,5,6,8,9,10,11,12,13,14,16)]
+
+table(new_hm_data$country)
+table(new_hm_data$gender)
+table(new_hm_data$marital)
+table(new_hm_data$parenthood)
+table(new_hm_data$predicted_category)
+table(new_hm_data$num_sentence)
+
+```
+
+```{r}
+f_data <- new_hm_data[new_hm_data$gender == "f",] %>% drop_na(predicted_category)
+m_data <- new_hm_data[new_hm_data$gender == "m",] %>% drop_na(predicted_category)
+o_data <- new_hm_data[new_hm_data$gender == "o",] %>% drop_na(predicted_category)
+
+```
+
+```{r female}
+ggplot(f_data)+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "female") +
+  xlab(label = NULL)
+
+
+ggplot(filter(f_data, marital == "married"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "married female") +
+  xlab(label = NULL)
+
+ggplot(filter(f_data, marital == "single"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "single female") +
+  xlab(label = NULL)
+
+ggplot(filter(f_data, marital == "divorced"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "divorced female") +
+  xlab(label = NULL)
+
+ggplot(filter(f_data, marital == "separated"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "separated female") +
+  xlab(label = NULL)
+
+ggplot(filter(f_data, marital == "widowed"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "widowed female") +
+  xlab(label = NULL)
+```
+
+```{r}
+ggplot(m_data)+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "male") +
+  xlab(label = NULL)
+
+ggplot(filter(m_data, marital == "married"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "married female") +
+  xlab(label = NULL)
+
+ggplot(filter(m_data, marital == "single"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "single female") +
+  xlab(label = NULL)
+
+ggplot(filter(m_data, marital == "divorced"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "divorced female") +
+  xlab(label = NULL)
+
+ggplot(filter(m_data, marital == "separated"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "separated female") +
+  xlab(label = NULL)
+
+ggplot(filter(m_data, marital == "widowed"))+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "widowed female") +
+  xlab(label = NULL)
+
+```
+
+```{r}
+ggplot(o_data)+
+  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "other") +
+  xlab(label = NULL)  
+```
+
+### Trying to find different words used by male and female
+### What's the first word that male and female prefer to use in sentences
+### Who are more perferable of long sentences.
+
+```{r}
+f_corpus <- VCorpus(VectorSource(f_data$cleaned_hm))
+
+# f_tf <- TermDocumentMatrix(f_corpus, control = list(removePunctuation = TRUE)) %>%             findMostFreqTerms(n = 2)
+f_bag_of_words <- as_tibble(f_data$cleaned_hm) %>% 
+  unnest_tokens(word, value)
+
+f_word_count <- f_bag_of_words %>%
+  count(word, sort = TRUE)
+
+m_bag_of_words <- as_tibble(m_data$cleaned_hm) %>% 
+  unnest_tokens(word, value)
+
+m_word_count <- m_bag_of_words %>%
+  count(word, sort = TRUE)
+```
+
