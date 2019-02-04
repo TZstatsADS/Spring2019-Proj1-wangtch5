@@ -1,35 +1,48 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Project 1"
+Author: Tianchen Wang
+UNI: tw2665
+output:
+  html_notebook:
+    df_print: paged
 ---
-
-## What are our goals?
-### 1. Find who are people spending time with in HM (gender, married/single).
-### 2. What are people doing when they feel happy maybe different catagories?.
-### 3. Number of sentences.
-### 4. Several data we could use, country, gender, age, marital, parenthood.
+# Men and Women: What Makes You Feel Happy?  
 
 ```{r}
-
-library(shiny)
-runExample("01_hello")
-runExample("02_text")
-runExample("03_reactivity")
-runExample("04_mpg")
-runExample("11_timer")
+packages.used = c("tm", "ggplot2", "tidyverse", "tidytext",
+                  "wordcloud2","topicmodels", "factoextra", 
+                  "DT","htmlwidgets")
+packages.needed = setdiff(packages.used, 
+                          intersect(installed.packages()[,1],
+                                    package.used))
+if(length(package.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE,
+                   repos='http://cran.us.r-project.org')
+}
 ```
 
 ```{r}
+print(R.version)
+```
+
+```{r}
+library(DT)
+library(shiny)
 library(tidyverse)
 library(tidytext)
 library(ggplot2)
 library(tm)
-
+library(wordcloud2)
+library(topicmodels)
+library(factoextra)
+library(htmlwidgets)
 ```
 
-## The goal is to find some interesting points based on gender difference.
+### Load data
 ```{r warning = FALSE}
-hm_data <- read_csv("./output/processed_moments.csv")
+setwd("~/Git/Spring2019-Proj1-wangtch5")
+
+hm_data <- read_csv("output/processed_moments.csv")
 
 urlfile <- 'https://raw.githubusercontent.com/rit-public/HappyDB/master/happydb/data/demographic.csv'
 dem_data <- read_csv(urlfile)
@@ -38,126 +51,315 @@ new_hm_data <- merge(dem_data, hm_data, by = "wid", all = FALSE)
 new_hm_data <- unique(new_hm_data)
 new_hm_data <- new_hm_data[c(1,7,15,2,3,4,5,6,8,9,10,11,12,13,14,16)]
 
-table(new_hm_data$country)
 table(new_hm_data$gender)
 table(new_hm_data$marital)
-table(new_hm_data$parenthood)
-table(new_hm_data$predicted_category)
-table(new_hm_data$num_sentence)
 
+# table(new_hm_data$country)
+# table(new_hm_data$parenthood)
+# table(new_hm_data$predicted_category)
+# table(new_hm_data$num_sentence)
 ```
 
+### output intermediate data
 ```{r}
 f_data <- new_hm_data[new_hm_data$gender == "f",] %>% drop_na(predicted_category)
 m_data <- new_hm_data[new_hm_data$gender == "m",] %>% drop_na(predicted_category)
-o_data <- new_hm_data[new_hm_data$gender == "o",] %>% drop_na(predicted_category)
 
+f_data <- drop_na(f_data, marital)
+m_data <- drop_na(m_data, marital)
+
+write_csv(f_data, "output/f_data.csv")
+write_csv(m_data, "output/m_data.csv")
 ```
 
+### plot and save plots of male and feamle on marital status
 ```{r female}
 ggplot(f_data)+
   geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "female") +
+  labs(title = "Summary Statistics of Female") +
   xlab(label = NULL)
+ggsave("figs/f_sum.png")
 
-
-ggplot(filter(f_data, marital == "married"))+
+ggplot(f_data)+
   geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "married female") +
-  xlab(label = NULL)
-
-ggplot(filter(f_data, marital == "single"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "single female") +
-  xlab(label = NULL)
-
-ggplot(filter(f_data, marital == "divorced"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "divorced female") +
-  xlab(label = NULL)
-
-ggplot(filter(f_data, marital == "separated"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "separated female") +
-  xlab(label = NULL)
-
-ggplot(filter(f_data, marital == "widowed"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "widowed female") +
-  xlab(label = NULL)
+  facet_wrap(~marital, scales = "free")+
+  xlab(label = NULL) +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
+  labs(title = "Female")
+ggsave("figs/f.png")
 ```
 
 ```{r}
 ggplot(m_data)+
   geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "male") +
+  labs(title = "Summary Statistics of Male") +
   xlab(label = NULL)
+ggsave("figs/m_sum.png")
 
-ggplot(filter(m_data, marital == "married"))+
+ggplot(m_data)+
   geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "married female") +
-  xlab(label = NULL)
-
-ggplot(filter(m_data, marital == "single"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "single female") +
-  xlab(label = NULL)
-
-ggplot(filter(m_data, marital == "divorced"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "divorced female") +
-  xlab(label = NULL)
-
-ggplot(filter(m_data, marital == "separated"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "separated female") +
-  xlab(label = NULL)
-
-ggplot(filter(m_data, marital == "widowed"))+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "widowed female") +
-  xlab(label = NULL)
+  facet_wrap(~marital, scales = "free")+
+  xlab(label = NULL) +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
+  labs(title = "Male")
+ggsave("figs/m.png")
 
 ```
 
+### Skip some meaningless words in dic in order to build wordcloud
 ```{r}
-ggplot(o_data)+
-  geom_bar(aes(x = predicted_category, fill = predicted_category)) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "other") +
-  xlab(label = NULL)  
+meaningless_words <- c("day", "time", "finally", "enjoyed", "feel", "watched",
+                       "favorite", "nice", "played", "aa")
 ```
 
-### Trying to find different words used by male and female
-### What's the first word that male and female prefer to use in sentences
-### Who are more perferable of long sentences.
-
+### generate wordcloud
 ```{r}
-f_corpus <- VCorpus(VectorSource(f_data$cleaned_hm))
-
-# f_tf <- TermDocumentMatrix(f_corpus, control = list(removePunctuation = TRUE)) %>%             findMostFreqTerms(n = 2)
-f_bag_of_words <- as_tibble(f_data$cleaned_hm) %>% 
+f_bag_of_words <- as_tibble(f_data$text) %>% 
   unnest_tokens(word, value)
 
 f_word_count <- f_bag_of_words %>%
-  count(word, sort = TRUE)
+  count(word, sort = TRUE) %>%
+  filter(!(word %in% meaningless_words))
 
-m_bag_of_words <- as_tibble(m_data$cleaned_hm) %>% 
+m_bag_of_words <- as_tibble(m_data$text) %>% 
   unnest_tokens(word, value)
 
 m_word_count <- m_bag_of_words %>%
-  count(word, sort = TRUE)
+  count(word, sort = TRUE) %>%
+  filter(!(word %in% meaningless_words))
+
+wcf <- wordcloud2(f_word_count, 
+           color = "random-dark",
+           backgroundColor = "Black")
+saveWidget(wcf,"wcf.html",selfcontained = F)
+
+wcm <- wordcloud2(m_word_count, 
+           color = "random-dark",
+           shape = "square",
+           backgroundColor = "Black")
+saveWidget(wcm,"wcm.html",selfcontained = F)
+```
+
+
+```{r}
+f_corpus <- Corpus(DataframeSource(select(f_data, doc_id = hmid, text)))
+f_dtm <- DocumentTermMatrix(f_corpus)
+rowsTotal <- apply(f_dtm , 1, sum)
+f_dtm <- f_dtm[rowsTotal>0, ]
+
+m_corpus <- Corpus(DataframeSource(select(m_data, doc_id = hmid, text)))
+m_dtm <- DocumentTermMatrix(m_corpus)
+rowsTotal <- apply(m_dtm , 1, sum)
+m_dtm <- m_dtm[rowsTotal>0, ]
+```
+
+### LDA, how to choose topic numbers k ?
+```{r}
+seed <- list(2019,2,1,10,25)
+K = 7*3
+control <- list(nstart=5, burnin=500, iter=2000, thin=200, 
+                best=TRUE, seed=seed)
+
+f_lda <- LDA(f_dtm, K, method = "Gibbs", control = control)
+f_topic <- tidy(f_lda, matrix = "beta")
+write_csv(f_topic, "output/f_topics.csv")
+
+m_lda <- LDA(m_dtm, K, method = "Gibbs", control = control)
+m_topic <- tidy(m_lda, matrix = "beta")
+write_csv(m_topic, "output/m_topics.csv")
+
+```
+
+```{r}
+f_top_terms <- f_topic %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+f_top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  labs(title = "Female")
+ggsave('figs/f_topics.png')
+
+m_top_terms <- m_topic %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+m_top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  labs(title = "Male")
+ggsave('figs/m_topics.png')
+ 
+```
+
+### USE DATA TO CLUSTER ON MARITAL STATUS BOTH FEMALE AND MALE
+
+```{r}
+# deal with words and tf-idf
+f_words <- f_data %>% 
+  unnest_tokens(word, text, token = "ngrams", n = 1) %>%
+  count(marital, word, sort = TRUE) %>%
+  ungroup() %>%
+  drop_na() %>%
+  filter(!(word %in% meaningless_words))
+  
+f_tfidf <- f_words %>%
+  bind_tf_idf(word, marital, n)
+
+m_words <- m_data %>% 
+  unnest_tokens(word, text, token = "ngrams", n = 1) %>%
+  count(marital, word, sort = TRUE) %>%
+  ungroup() %>%
+  drop_na() %>%
+  filter(!(word %in% meaningless_words))
+
+m_tfidf <- m_words %>%
+  bind_tf_idf(word, marital, n)
+
+write_csv(f_tfidf, 'output/f_tfidf.csv')
+write_csv(m_tfidf, 'output/m_tfidf.csv')
+
+```
+
+# `{``{r fig.width=3, fig.height=4}
+group by arrange bug?
+```{r}
+# ON MARITAL STATUS
+df <- f_words %>%
+  group_by(marital) %>%
+  distinct(n,.keep_all = TRUE) %>%
+  top_n(10, n) %>%
+  ungroup() %>%
+  arrange(marital, n) %>%
+  mutate(order = row_number())
+  
+ggplot(df, aes(order, n, fill = marital)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "n", title = "Female") +
+  facet_wrap(~marital, ncol = 2, scales = "free") +
+  scale_x_continuous(breaks = df$order, labels = df$word) +
+  coord_flip()
+ggsave('figs/f_words.png')
+
+df <- f_tfidf %>%
+  group_by(marital) %>%
+  distinct(tf_idf,.keep_all = TRUE) %>%
+  top_n(10, tf_idf) %>%
+  ungroup() %>%
+  arrange(marital, n) %>%
+  mutate(order = row_number())
+
+ggplot(df, aes(order, tf_idf, fill = marital)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf", title = "Female") +
+  facet_wrap(~marital, ncol = 2, scales = "free") +
+  scale_x_continuous(breaks = df$order, labels = df$word) +
+  coord_flip()
+ggsave('figs/f_tfidf.png')
+
+
+df <- m_words %>%
+  group_by(marital) %>%
+  distinct(n,.keep_all = TRUE) %>%
+  top_n(10, n) %>%
+  ungroup() %>%
+  arrange(marital, n) %>%
+  mutate(order = row_number())
+
+ggplot(df, aes(order, n, fill = marital)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "n", title = "Male") +
+  facet_wrap(~marital, ncol = 2, scales = "free") +
+  scale_x_continuous(breaks = df$order, labels = df$word) +
+  coord_flip()
+ggsave('figs/m_words.png')
+
+#### 
+df <- m_tfidf %>%
+  group_by(marital) %>%
+  distinct(tf_idf,.keep_all = TRUE) %>%
+  top_n(10, tf_idf) %>%
+  ungroup() %>%
+  arrange(marital, tf_idf) %>%
+  mutate(order = row_number())
+  # mutate(word = reorder(word, tf_idf)) %>%
+ggplot(df, aes(order, tf_idf, fill = marital)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf", title = "Male") +
+  facet_wrap(~marital, ncol = 2, scales = "free") +
+  scale_x_continuous(breaks = df$order, labels = df$word) +
+  coord_flip()
+ggsave('figs/m_tfidf.png')
+
+
+```
+
+### CLUSTRING BY KMEANS OF DTM
+```{r}
+hm_dtm <- new_hm_data %>%
+  select(marital, gender,text) %>%
+  group_by(marital, gender) %>%
+  summarise(text = paste(text,collapse = "")) %>%
+  drop_na() %>%
+  filter(gender != "o") %>%
+  ungroup() %>%
+  mutate(doc_id = paste0(marital,'_',gender)) %>%
+  select(doc_id, text)
+
+hm_dtm <- DocumentTermMatrix(VCorpus(DataframeSource(hm_dtm)))
+
+dtm_km_res <- kmeans(hm_dtm, 2)
+
+fviz_cluster(dtm_km_res, 
+             stand=T, repel= TRUE,
+             data = hm_dtm,
+             show.clust.cent=FALSE)
+```
+
+```{r}
+f_topic_dtm <- f_topic %>%
+  group_by(topic) %>%
+  arrange(topic, -beta) %>%
+  top_n(15) %>%
+  summarise(text = paste(term, sep = " ",collapse = " ")) %>%
+  drop_na() %>%
+  ungroup() %>%
+  mutate(doc_id = paste0(topic,'_f'))
+
+m_topic_dtm <- m_topic %>%
+  group_by(topic) %>%
+  arrange(topic, -beta) %>%
+  top_n(15) %>%
+  summarise(text = paste(term, sep = " ",collapse = " ")) %>%
+  drop_na() %>%
+  ungroup() %>%
+  mutate(doc_id = paste0(topic,'_m'))
+
+topic_dtm <- bind_rows(f_topic_dtm, m_topic_dtm) %>%
+  select(doc_id, text) %>%
+  DataframeSource() %>%
+  VCorpus() %>%
+  DocumentTermMatrix()
+
+tp_km_res <- kmeans(topic_dtm, 7)
+tp_km_res
+
+fviz_cluster(tp_km_res, 
+             stand=T, repel= TRUE,
+             data = topic_dtm,
+             show.clust.cent=FALSE)
 ```
 
