@@ -160,7 +160,7 @@ wcm <- wordcloud2(m_word_count,
 saveWidget(wcm,"wcm.html",selfcontained = F)
 ```
 In order to get a brief sense of what women and men are saying in their happy moments, I draw 2 word cloud figures to make things clear.
-Female wordcloud
+Here, word capital word "F" represents female and "M" represents male.
 By looking at the word cloud of women, it is easy to notice that there are lots of words related to family and life.
 ```{r echo=FALSE}
 letterCloud(f_word_count, "F", wordSize=3)
